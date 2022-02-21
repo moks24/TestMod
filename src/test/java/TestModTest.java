@@ -1,40 +1,77 @@
 import com.codeborne.selenide.Condition;
-import io.restassured.builder.RequestSpecBuilder;
-import io.restassured.filter.log.LogDetail;
-import io.restassured.http.ContentType;
-import io.restassured.specification.RequestSpecification;
-import org.junit.jupiter.api.BeforeAll;
+
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
-import ru.nethology.RegistrationDto;
 
 import static com.codeborne.selenide.Selenide.$;
 import static com.codeborne.selenide.Selenide.open;
-import static io.restassured.RestAssured.given;
-import static ru.nethology.utilites.Generator.AuthTest.requestSpec;
+import static ru.nethology.utilites.Generator.Registration.getRegisteredUser;
+import static ru.nethology.utilites.Generator.Registration.getUser;
+import static ru.nethology.utilites.Generator.getRandomLogin;
+import static ru.nethology.utilites.Generator.getRandomPassword;
+
 
 public class TestModTest {
 
-    @BeforeAll
-    public static void setUpAll() {
-        // сам запрос
-        given() // "дано"
-                .spec(requestSpec) // указываем, какую спецификацию используем
-                .body(new RegistrationDto("vasya", "password", "active")) // передаём в теле объект, который будет преобразован в JSON
-                .when() // "когда"
-                .post("/api/system/users") // на какой путь, относительно BaseUri отправляем запрос
-                .then() // "тогда ожидаем"
-                .statusCode(200); // код 200 OK
+    @BeforeEach
+    void setup() {
+        open("http://localhost:9999");
     }
 
     @Test
-    public void should() {
-
-        open("http://localhost:9999/");
-        $("[name='login']").val("vasya");
-        $("[name='password']").val("password");
+    @DisplayName("Should successfully login with active registered user")
+    void shouldSuccessfulLoginIfRegisteredActiveUser() {
+        var registeredUser = getRegisteredUser("active");
+        $("[name='login']").val(registeredUser.getLogin());
+        $("[name='password']").val(registeredUser.getPassword());
         $("[class='button__text']").click();
         $("[class='App_appContainer__3jRx1']").shouldHave(Condition.exactText("Личный кабинет"));
-
     }
 
+    @Test
+    @DisplayName("Should get error message if login with not registered user")
+    void shouldGetErrorIfNotRegisteredUser() {
+        var notRegisteredUser = getUser("active");
+        $("[name='login']").val(notRegisteredUser.getLogin());
+        $("[name='password']").val(notRegisteredUser.getPassword());
+        $("[class='button__text']").click();
+        $("[class=\"notification__content\"]").shouldHave(Condition.
+                exactText("Ошибка! Неверно указан логин или пароль"));
+    }
+
+    @Test
+    @DisplayName("Should get error message if login with blocked registered user")
+    void shouldGetErrorIfBlockedUser() {
+        var blockedUser = getRegisteredUser("blocked");
+        $("[name='login']").val(blockedUser.getLogin());
+        $("[name='password']").val(blockedUser.getPassword());
+        $("[class='button__text']").click();
+        $("[class=\"notification__content\"]").shouldHave(Condition.
+                exactText("Ошибка! Пользователь заблокирован"));
+    }
+
+    @Test
+    @DisplayName("Should get error message if login with wrong login")
+    void shouldGetErrorIfWrongLogin() {
+        var registeredUser = getRegisteredUser("active");
+        var wrongLogin = getRandomLogin();
+        $("[name='login']").val(wrongLogin);
+        $("[name='password']").val(registeredUser.getPassword());
+        $("[class='button__text']").click();
+        $("[class=\"notification__content\"]").shouldHave(Condition.
+                exactText("Ошибка! Неверно указан логин или пароль"));
+    }
+
+    @Test
+    @DisplayName("Should get error message if login with wrong password")
+    void shouldGetErrorIfWrongPassword() {
+        var registeredUser = getRegisteredUser("active");
+        var wrongPassword = getRandomPassword();
+        $("[name='login']").val(registeredUser.getLogin());
+        $("[name='password']").val(wrongPassword);
+        $("[class='button__text']").click();
+        $("[class=\"notification__content\"]").shouldHave(Condition.
+                exactText("Ошибка! Неверно указан логин или пароль"));
+    }
 }
